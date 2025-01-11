@@ -1,44 +1,29 @@
+imgname= 'lena.png';
 
-% Constants
-initial_value = 0.815647;
-r_param = 3.987;
-
-% Test images
-secret_img_name = 'lena_128.png';
-cover_img_name  = 'sydney_512.png';
-
-% images converted to grayscale
-secret_image = imread(secret_img_name);
-if size(secret_image, 3) == 3
-    secret_image = rgb2gray(secret_image);  
+img = imread(imgname);
+if size(img, 3) == 3
+    img = rgb2gray(img);  
 end   
 
-
-% Encrypt the image
-%encrypted_image = chaotic_image_encryption(secret_image);
-
-
-%test_arnold_mapping(img)
-%test_counterlet(img)
-enc_dec(secret_image)
+% test_arnold_mapping(img)
+% test_counterlet(img)
 
 function test_counterlet(img)    
     
     % Step 1
     pfilt = 'pkva';     
     dfilt = 'pkva';     
-    nlevs = [0, 2, 3, 4] ;  
+    nlevs = [0, 1, 2];  
     coeff = pdfbdec(double(img), pfilt, dfilt, nlevs);  
 
     low_freq_subband = coeff{1};  
 
     % Step 2
     scrambled_low_freq = arnold_map_scramble(low_freq_subband);
-    coeff_d = coeff;
-    coeff_d{1} = scrambled_low_freq;  
+    coeff{1} = scrambled_low_freq;  
 
     % Step 3
-    scrambled_img = pdfbrec(coeff_d, pfilt, dfilt);   
+    scrambled_img = uint8(pdfbrec(coeff, pfilt, dfilt));   
 
     % Display results
     figure;
@@ -55,36 +40,27 @@ function test_counterlet(img)
     % Step 1
     pfilt = 'pkva';     
     dfilt = 'pkva';     
-    nlevs = [0, 2, 3, 4] ;  
-    coeff_s = pdfbdec(double(scrambled_img), pfilt, dfilt, nlevs);
+    nlevs = [0, 1, 2];  
+    coeff = pdfbdec(double(scrambled_img), pfilt, dfilt, nlevs);
 
-    scrambled_low_freq_s = coeff_s{1};  
+    scrambled_low_freq = coeff{1};  
 
     % Step 2
-    unscrambled_low_freq = inverse_arnold_map_scramble(scrambled_low_freq_s);
-    coeff_x = coeff_s;
-    coeff_x{1} = double(unscrambled_low_freq); 
+    unscrambled_low_freq = inverse_arnold_map_scramble(scrambled_low_freq);
+    coeff{1} = double(unscrambled_low_freq); 
 
     % Step 3
-    decrypted_image = pdfbrec(coeff_x, pfilt, dfilt);
+    decrypted_image = uint8(pdfbrec(coeff, pfilt, dfilt));
 
     % Display results
     figure;
     subplot(1, 3, 1);
     imshow(scrambled_img);
-    title('Scrambling Image');
+    title('Original Image');
     
     subplot(1, 3, 2);
     imshow(uint8(decrypted_image));
-    title('Converted Image');   
-
-
-    %Check scrambling differences
-    mse = sum( sum( (decrypted_image - double(img)).^2 ) );
-    mse = mse / prod(size(img));
-
-    disp( sprintf('The mean square error is: %f', mse ) );
-    disp(' ');
+    title('Scrambled Image');   
 end
 
 % Arnol Map Test
@@ -107,27 +83,25 @@ function test_arnold_mapping(img)
     title('Decrypted Image');
 end    
 
-function enc_dec(img)
-    % Encrypt the image
-    encrypted_image = chaotic_image_encryption(img);
-    
-    % Decrypt the image
-    decrypted_image = chaotic_image_decryption(encrypted_image);
-    
-    % Display Original-Encryted-Decryted images
-    figure;
-    subplot(1, 3, 1);
-    imshow(img);
-    title('Original Image');
-    
-    subplot(1, 3, 2);
-    imshow(uint8(encrypted_image));
-    title('Encrypted Image');
-    
-    subplot(1, 3, 3);
-    imshow(uint8(decrypted_image));
-    title('Decrypted Image');
-end
+% Encrypt the image
+encrypted_image = chaotic_image_encryption(img);
+
+% Decrypt the image
+decrypted_image = chaotic_image_decryption(encrypted_image);
+
+% Display Original-Encryted-Decryted images
+figure;
+subplot(1, 3, 1);
+imshow(img);
+title('Original Image');
+
+subplot(1, 3, 2);
+imshow(uint8(encrypted_image));
+title('Encrypted Image');
+
+subplot(1, 3, 3);
+imshow(uint8(decrypted_image));
+title('Decrypted Image');
 
 % Encrypt Image
 function encrypted_image = chaotic_image_encryption(img)
@@ -135,7 +109,7 @@ function encrypted_image = chaotic_image_encryption(img)
     % Step 1: Contourlet Transform
     pfilt = 'pkva';     
     dfilt = 'pkva';     
-    nlevs = [0, 2, 3, 4] ;  
+    nlevs = [0, 1, 2];  
     coeff = pdfbdec(double(img), pfilt, dfilt, nlevs);  
 
     low_freq_subband = coeff{1};  
@@ -196,7 +170,7 @@ function decrypted_image = chaotic_image_decryption(encrypted_image)
     % Step 3: Contourlet Transform 
     pfilt = 'pkva';     
     dfilt = 'pkva';     
-    nlevs = [0, 2, 3, 4] ;  
+    nlevs = [0, 1, 2];  
     coeff = pdfbdec(double(scrambled_img), pfilt, dfilt, nlevs);
 
     scrambled_low_freq = coeff{1};  
@@ -292,17 +266,16 @@ end
 function scrambled_matrix = arnold_map_scramble(matrix)
     [N, ~] = size(matrix);
     scrambled_matrix = matrix;
-    iterations = 10;
+    iterations = 2;
     for k = 1:iterations
         temp_matrix = scrambled_matrix;
         for x = 1:N
             for y = 1:N
-                new_x = mod((x + y-1), N) + 1;
-                new_y = mod((x + 2*y-1), N) + 1;
-                temp_matrix(new_x, new_y) = scrambled_matrix(x,y);
+                new_x = mod((x + y), N) + 1;
+                new_y = mod((x + 2*y), N) + 1;
+                scrambled_matrix(new_y, new_x) = temp_matrix(y,x);
             end
         end
-        scrambled_matrix = temp_matrix;
     end
 end
 
@@ -310,17 +283,16 @@ end
 function unscrambled_matrix = inverse_arnold_map_scramble(matrix)
     [N, ~] = size(matrix);
     unscrambled_matrix = matrix;
-    iterations = 10;
+    iterations = 2;
     for k = 1:iterations
         temp_matrix = unscrambled_matrix;
         for x = 1:N
             for y = 1:N
                 % Inverse Arnold transformation
-                new_x = mod((2 * x - y-1), N) + 1;
-                new_y = mod((-x + y-1), N) + 1;
-                temp_matrix(new_x, new_y) = unscrambled_matrix(x,y);
+                new_x = mod((2 * x - y), N) + 1;
+                new_y = mod((-x + y), N) + 1;
+                unscrambled_matrix(new_y, new_x) = temp_matrix(y,x);
             end
         end
-        unscrambled_matrix = temp_matrix;
     end
 end
